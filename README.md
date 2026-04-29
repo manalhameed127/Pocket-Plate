@@ -1,2 +1,2 @@
-# Pocket Plate - Backend
+# Pocket Plate
 Backend for AI-powered food ordering app (PocketPlate)
