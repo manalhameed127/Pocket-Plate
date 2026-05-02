@@ -1,14 +1,21 @@
 const jwt = require("jsonwebtoken");
+const BlacklistedToken = require("../models/BlacklistedToken");
 
-const authMiddleware = (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "No token provided" });
     }
 
     const token = authHeader.split(" ")[1];
+
+    // 🔴 CHECK BLACKLIST (THIS is what makes logout work)
+    const isBlacklisted = await BlacklistedToken.findOne({ token });
+    if (isBlacklisted) {
+      return res.status(401).json({ error: "Token expired (logged out)" });
+    }
 
     const decoded = jwt.verify(
       token,
@@ -18,10 +25,9 @@ const authMiddleware = (req, res, next) => {
     req.user = decoded;
 
     next();
-
   } catch (error) {
     return res.status(401).json({ error: "Invalid token" });
   }
 };
 
-module.exports = authMiddleware;
+module.exports = protect;
