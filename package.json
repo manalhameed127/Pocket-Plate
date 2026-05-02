@@ -1,4 +1,12 @@
 {
+  "name": "pocket-plate-backend",
+  "version": "1.0.0",
+  "description": "PocketPlate Backend API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.5",
