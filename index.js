@@ -14,6 +14,9 @@ app.use("/api/restaurants", require("./routes/restaurants"));
 app.use("/api/reviews", require("./routes/reviews"));
 app.use("/api/promotions", require("./routes/promotions"));
 app.use("/api/vouchers", require("./routes/vouchers"));
+app.use("/api/budget", require("./routes/budget"));
+app.use("/api/cart", require("./routes/cart"));
+app.use("/api/orders", require("./routes/orders"));
 
 app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
