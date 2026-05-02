@@ -10,6 +10,8 @@ connectDB();
 
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/users", require("./routes/user"));
+app.use("/api/restaurants", require("./routes/restaurants"));
+app.use("/api/reviews", require("./routes/reviews"));
 
 app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
