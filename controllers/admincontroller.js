@@ -81,5 +81,65 @@ const deleteRestaurant = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+// POST create/integrate a new restaurant
+const createRestaurant = async (req, res) => {
+  try {
+    const { name, description, location, cuisine, priceRange, hours, image } = req.body;
 
-module.exports = { getAllUsers, updateUser, deleteUser, getAllRestaurants, updateRestaurant, deleteRestaurant };
+    if (!name) return res.status(400).json({ error: "Restaurant name is required" });
+
+    const restaurant = new Restaurant({
+      name,
+      description,
+      location,
+      cuisine,
+      priceRange,
+      hours,
+      image
+    });
+
+    await restaurant.save();
+    res.status(201).json({ message: "Restaurant integrated successfully", restaurant });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+const Offer = require("../models/offer");
+
+// PUT update an offer
+const updateOffer = async (req, res) => {
+  try {
+    const offer = await Offer.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!offer) return res.status(404).json({ error: "Offer not found" });
+
+    res.status(200).json({ message: "Offer updated successfully", offer });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+const Order = require("../models/Order");
+
+// GET system metrics
+const getMetrics = async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalRestaurants = await Restaurant.countDocuments();
+    const totalOrders = await Order.countDocuments();
+    const totalOffers = await Offer.countDocuments();
+
+    res.status(200).json({
+      totalUsers,
+      totalRestaurants,
+      totalOrders,
+      totalOffers
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+module.exports = { getAllUsers, updateUser, deleteUser, getAllRestaurants, updateRestaurant, deleteRestaurant, createRestaurant, updateOffer, getMetrics };
