@@ -1,0 +1,186 @@
+require("dns").setDefaultResultOrder("ipv4first");
+require("dotenv").config();
+
+
+const express = require("express");
+const connectDB = require("./db");
+
+const app = express();
+
+// middleware
+app.use(express.json());
+
+// connect DB
+connectDB();
+
+// routes
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/users", require("./routes/user"));
+
+// test route
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
+
+// server
+app.listen(5000, () => {
+  console.log("Server running on port 5000");
+});const mongoose = require("mongoose");
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+      family: 4
+    });
+    console.log("MongoDB Connected ✔");
+  } catch (error) {
+    console.log("MongoDB connection failed ❌", error.message);
+  }
+};
+
+module.exports = connectDB;const jwt = require("jsonwebtoken");
+const BlacklistedToken = require("../models/BlacklistedToken");
+
+const protect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    // 🔴 CHECK BLACKLIST (THIS is what makes logout work)
+    const isBlacklisted = await BlacklistedToken.findOne({ token });
+    if (isBlacklisted) {
+      return res.status(401).json({ error: "Token expired (logged out)" });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "fallbacksecret"
+    );
+
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+};
+
+module.exports = protect;const mongoose = require("mongoose");
+
+const blacklistSchema = new mongoose.Schema({
+  token: {
+    type: String,
+    required: true
+  },
+  expiresAt: {
+    type: Date,
+    required: true
+  }
+});
+
+module.exports = mongoose.model("BlacklistedToken", blacklistSchema);const mongoose = require("mongoose");
+
+const cartItemSchema = new mongoose.Schema({
+  menuItem: { type: mongoose.Schema.Types.ObjectId, ref: "MenuItem", required: true },
+  restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true },
+  name: String,
+  price: Number,
+  quantity: { type: Number, default: 1 }
+});
+
+const cartSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  items: [cartItemSchema],
+  totalAmount: { type: Number, default: 0 }
+}, { timestamps: true });
+
+module.exports = mongoose.model("Cart", cartSchema);const mongoose = require("mongoose");
+
+const menuItemSchema = new mongoose.Schema({
+  restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true },
+  name: { type: String, required: true },
+  description: String,
+  price: { type: Number, required: true },
+  category: String,
+  isAvailable: { type: Boolean, default: true },
+  image: String
+}, { timestamps: true });
+
+module.exports = mongoose.model("MenuItem", menuItemSchema);const mongoose = require("mongoose");
+
+const orderItemSchema = new mongoose.Schema({
+  menuItem: { type: mongoose.Schema.Types.ObjectId, ref: "MenuItem", required: true },
+  restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true },
+  name: String,
+  price: Number,
+  quantity: { type: Number, default: 1 }
+});
+
+const orderSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  items: [orderItemSchema],
+  totalAmount: { type: Number, required: true },
+  status: {
+    type: String,
+    enum: ["pending", "confirmed", "delivered", "cancelled"],
+    default: "pending"
+  },
+  paymentMethod: { type: String, enum: ["cash", "card", "voucher"] },
+  voucherApplied: { type: mongoose.Schema.Types.ObjectId, ref: "Voucher" },
+  discount: { type: Number, default: 0 }
+}, { timestamps: true });
+
+module.exports = mongoose.model("Order", orderSchema);const mongoose = require("mongoose");
+
+const restaurantSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: String,
+  location: {
+    address: String,
+    city: String,
+    coordinates: {
+      lat: Number,
+      lng: Number
+    }
+  },
+  cuisine: [String],
+  rating: { type: Number, default: 0 },
+  totalReviews: { type: Number, default: 0 },
+  priceRange: { type: String, enum: ["$", "$$", "$$$"] },
+  hours: {
+    open: String,
+    close: String
+  },
+  isNewlyOpened: { type: Boolean, default: false },
+  image: String
+}, { timestamps: true });
+
+module.exports = mongoose.model("Restaurant", restaurantSchema);const mongoose = require("mongoose");
+
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  location: {
+    address: String,
+    city: String,
+    coordinates: {
+      lat: Number,
+      lng: Number
+    }
+  },
+  preferences: {
+    cuisines: [String],
+    dietaryRestrictions: [String]
+  },
+  budget: { type: Number, default: 0 },
+  isEndOfMonthMode: { type: Boolean, default: false }
+}, { timestamps: true });
+
+module.exports = mongoose.model("User", userSchema);
