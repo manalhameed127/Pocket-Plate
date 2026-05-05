@@ -41,19 +41,12 @@ router.get("/orders/history", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/users/location
 router.post("/location", authMiddleware, async (req, res) => {
   try {
     const { address, city, lat, lng } = req.body;
     const updated = await User.findByIdAndUpdate(
       req.user.id,
-      {
-        location: {
-          address,
-          city,
-          coordinates: { lat, lng }
-        }
-      },
+      { location: { address, city, coordinates: { lat, lng } } },
       { new: true }
     ).select("-password");
     return res.status(200).json({ message: "Location updated", user: updated });
@@ -61,6 +54,5 @@ router.post("/location", authMiddleware, async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
-
 
 module.exports = router;
