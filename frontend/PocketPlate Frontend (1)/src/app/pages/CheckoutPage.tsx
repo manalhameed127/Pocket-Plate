@@ -2,21 +2,85 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import Navigation from '../components/Navigation';
+import AuthModal from '../components/AuthModal';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { user, cart, appliedVoucher, placeOrder } = useApp();
   const [selectedCard, setSelectedCard] = useState(user?.savedCards?.[0]?.id || '');
   const [processing, setProcessing] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [orderRef, setOrderRef] = useState('');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   if (!user) {
-    navigate('/home');
-    return null;
+    return (
+      <div className="min-h-screen bg-[#FEFAF5]">
+        <Navigation
+          onAuthClick={(mode) => {
+            setAuthMode(mode);
+            setShowAuthModal(true);
+          }}
+        />
+        <div className="max-w-3xl mx-auto px-6 py-20 text-center">
+          <h1 className="font-serif text-3xl font-semibold text-[#1A1A2E] mb-3">Log in to checkout</h1>
+          <p className="text-sm font-medium text-[#9B96B0] mb-6">You need an account before placing an order.</p>
+          <button
+            onClick={() => {
+              setAuthMode('login');
+              setShowAuthModal(true);
+            }}
+            className="py-3 px-6 rounded-xl bg-[#FF6B35] border-none text-sm font-bold text-white hover:bg-[#FF8C5A] transition-all"
+          >
+            Log in
+          </button>
+        </div>
+        {showAuthModal && <AuthModal mode={authMode} onClose={() => setShowAuthModal(false)} onSwitchMode={(mode) => setAuthMode(mode)} />}
+      </div>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-[#FEFAF5]">
+        <Navigation onAuthClick={() => {}} />
+        <div className="max-w-3xl mx-auto px-6 py-20">
+          <div className="bg-white rounded-2xl border border-[#F0EBE3] p-8 text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#E8FFF5] text-2xl font-extrabold text-[#06D6A0]">
+              OK
+            </div>
+            <h1 className="font-serif text-3xl font-semibold text-[#1A1A2E] mb-3">Order placed</h1>
+            <p className="text-sm font-medium text-[#9B96B0] mb-2">Your food is being confirmed with the restaurant.</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#FF6B35] mb-6">Order #{orderRef}</p>
+            <button
+              onClick={() => navigate('/orders')}
+              className="py-3 px-6 rounded-xl bg-[#FF6B35] border-none text-sm font-bold text-white hover:bg-[#FF8C5A] transition-all"
+            >
+              View order
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (cart.length === 0) {
-    navigate('/cart');
-    return null;
+    return (
+      <div className="min-h-screen bg-[#FEFAF5]">
+        <Navigation onAuthClick={() => {}} />
+        <div className="max-w-3xl mx-auto px-6 py-20 text-center">
+          <h1 className="font-serif text-3xl font-semibold text-[#1A1A2E] mb-3">Your cart is empty</h1>
+          <p className="text-sm font-medium text-[#9B96B0] mb-6">Add something tasty before checkout.</p>
+          <button
+            onClick={() => navigate('/restaurants')}
+            className="py-3 px-6 rounded-xl bg-[#FF6B35] border-none text-sm font-bold text-white hover:bg-[#FF8C5A] transition-all"
+          >
+            Browse restaurants
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const subtotal = cart.reduce((sum, item) => sum + (item.item.price * item.quantity), 0);
@@ -32,15 +96,19 @@ export default function CheckoutPage() {
     setProcessing(true);
 
     try {
+      const nextOrderRef = Math.random().toString(36).slice(2, 10).toUpperCase();
       await placeOrder({
         total,
         paymentCard: selectedCard,
-        voucher: appliedVoucher?.code
+        voucher: appliedVoucher?.code,
+        orderRef: nextOrderRef
       });
+      setOrderRef(nextOrderRef);
+      setSubmitted(true);
 
       setTimeout(() => {
         navigate('/orders');
-      }, 1500);
+      }, 2500);
     } catch (error) {
       console.error(error);
       setProcessing(false);

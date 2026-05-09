@@ -1,4 +1,6 @@
+const path = require("path");
 require("dotenv").config();
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -74,6 +76,18 @@ io.on("connection", (socket) => {
 const errorHandler = require("./middleware/errorHandler");
 app.use(errorHandler);
 
-server.listen(5000, () => {
-  console.log("Server running on port 5000");
+const PORT = process.env.PORT || 5000;
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Set PORT to another value or stop the process using it.`);
+    process.exit(1);
+  }
+
+  console.error(error);
+  process.exit(1);
+});
+
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
