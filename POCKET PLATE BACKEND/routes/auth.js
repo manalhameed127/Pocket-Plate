@@ -5,7 +5,7 @@ const protect = require("../middleware/authMiddleware");
 const {
   registerUser,
   loginUser, logoutUser
-} = require("../controllers/authController");
+} = require("../controllers/authcontroller");
 console.log("logoutUser:", logoutUser);
 
 console.log("protect:", protect);
