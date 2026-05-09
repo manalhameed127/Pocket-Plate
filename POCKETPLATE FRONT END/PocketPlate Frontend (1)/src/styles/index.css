@@ -1,0 +1,112 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+.mac-dock .dock-item {
+  transform-origin: center left;
+}
+
+.mac-dock .dock-item:hover {
+  transform: translateX(8px) scale(1.24);
+}
+
+.mac-dock .dock-item:has(+ .dock-item:hover),
+.mac-dock .dock-item:hover + .dock-item {
+  transform: translateX(4px) scale(1.12);
+}
+
+.feature-wheel {
+  position: relative;
+  width: 224px;
+  height: 224px;
+  margin: auto;
+}
+
+.feature-wheel::before {
+  content: "";
+  position: absolute;
+  inset: 24px;
+  border-radius: 999px;
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(255, 107, 53, 0.42) 0deg 4deg,
+      transparent 4deg 11deg
+    );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2px),
+    #000 calc(100% - 2px)
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2px),
+    #000 calc(100% - 2px)
+  );
+  animation: pocketplate-spin 14s linear infinite;
+  transform-origin: center;
+}
+
+.feature-wheel:hover::before {
+  animation-duration: 7s;
+}
+
+.feature-wheel-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  width: 78px;
+  height: 78px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 999px;
+  background: #ff6b35;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 16px 30px rgba(255, 107, 53, 0.24);
+}
+
+.feature-wheel-item {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  transform: translate(-50%, -50%) rotate(var(--angle)) translate(78px)
+    rotate(var(--counter-angle));
+  transform-origin: center;
+  border: 1px solid #f0ebe3;
+  border-radius: 17px;
+  background: #fffaf0;
+  color: #4a4560;
+  box-shadow: 0 8px 18px rgba(26, 26, 46, 0.08);
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    scale 180ms ease;
+}
+
+.feature-wheel-item:hover {
+  border-color: #ff6b35;
+  background: #fff0e8;
+  color: #ff6b35;
+  scale: 1.14;
+}
+
+@keyframes pocketplate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

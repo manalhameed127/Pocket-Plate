@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketPlate — AI Budget Food Ordering</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:ital,wght@0,600;1,300;1,600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --orange:#FF6B35;--orange-light:#FF8C5A;--orange-pale:#FFF0E8;
+  --green:#06D6A0;--bg:#FEFAF5;
+  --dark:#1A1A2E;--mid:#4A4560;--muted:#9B96B0;
+  --border:#F0EBE3;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Nunito',sans-serif;background:var(--bg);overflow-x:hidden}
+
+/* ── STICKY SCROLL ── */
+#sticky-container{height:500vh;position:relative}
+#sticky-scene{
+  position:sticky;top:0;height:100vh;overflow:hidden;
+  background:#E8F4F8;
+}
+
+/* soft gradient bg */
+#sticky-scene::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 80%, #D6EEF8 0%, #E8F4F8 55%, #F0F8FC 100%);
+}
+
+/* ── TOP BRAND ── */
+.top-brand{
+  position:absolute;top:28px;left:50%;transform:translateX(-50%);
+  text-align:center;z-index:4;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.top-brand .logo{
+  font-family:'Fraunces',serif;font-size:clamp(20px,3vw,30px);font-weight:600;
+  color:var(--dark);letter-spacing:-0.02em;
+}
+.top-brand .logo span{color:var(--orange)}
+.top-brand .tagline{
+  font-size:clamp(11px,1.3vw,14px);color:var(--mid);font-weight:600;
+  letter-spacing:0.02em;
+}
+
+/* ── SCROLL HINT ── */
+.scroll-hint{
+  position:absolute;bottom:32px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  z-index:4;pointer-events:none;
+}
+.scroll-hint span{
+  font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;
+  color:rgba(74,69,96,0.5);
+}
+.scroll-line{
+  width:1.5px;height:36px;
+  background:linear-gradient(to bottom,rgba(74,69,96,0.4),transparent);
+  animation:lineGrow 1.6s ease-in-out infinite;
+  transform-origin:top;
+}
+@keyframes lineGrow{
+  0%,100%{transform:scaleY(1);opacity:0.5}
+  50%{transform:scaleY(0.5);opacity:1}
+}
+
+/* ── BAYMAX WRAPPER ── */
+#baymax-wrapper{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  z-index:3;pointer-events:none;
+}
+#baymax-svg{
+  width:min(340px,70vw);
+  height:auto;
+  filter:drop-shadow(0 24px 48px rgba(0,80,120,0.12));
+  transform-origin:center center;
+}
+
+/* tummy overlay: white circle that fills screen */
+#tummy-fill{
+  position:absolute;
+  border-radius:50%;
+  background:white;
+  pointer-events:none;
+  z-index:5;
+  transform:translate(-50%,-50%) scale(0);
+  transition:none;
+}
+
+/* ── APP ── */
+#app-section{
+  position:absolute;inset:0;background:var(--bg);
+  opacity:0;pointer-events:none;overflow-y:auto;overflow-x:hidden;
+  z-index:6;
+}
+#app-section.on{opacity:1;pointer-events:all}
+
+@keyframes popIn{
+  0%  {transform:scale(0.82);opacity:0}
+  60% {transform:scale(1.05);opacity:1}
+  78% {transform:scale(0.97)}
+  90% {transform:scale(1.02)}
+  100%{transform:scale(1)}
+}
+#app-section.popping{
+  animation:popIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+#app-section::-webkit-scrollbar{width:4px}
+#app-section::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* ── NAV ── */
+.app-nav{
+  position:sticky;top:0;z-index:200;
+  background:rgba(254,250,245,0.94);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 36px;gap:16px;
+}
+.nav-logo{font-family:'Fraunces',serif;font-size:21px;font-weight:600;color:var(--dark);display:flex;align-items:center;gap:7px}
+.logo-dot{width:9px;height:9px;border-radius:50%;background:var(--orange)}
+.nav-links{display:flex;gap:2px}
+.nav-link{padding:7px 14px;border-radius:11px;font-size:14px;font-weight:600;color:var(--mid);background:none;border:none;cursor:pointer;transition:all .15s;font-family:'Nunito',sans-serif}
+.nav-link:hover{background:var(--orange-pale);color:var(--orange)}
+.nav-right{display:flex;gap:9px;align-items:center}
+.btn-ghost{padding:8px 18px;border-radius:12px;border:1.5px solid var(--border);background:white;font-size:13px;font-weight:700;color:var(--dark);cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s}
+.btn-ghost:hover{border-color:var(--orange);color:var(--orange)}
+.btn-primary{padding:8px 20px;border-radius:12px;background:var(--orange);border:none;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;box-shadow:0 4px 14px rgba(255,107,53,.3)}
+.btn-primary:hover{background:var(--orange-light);transform:translateY(-1px)}
+.cart-btn{position:relative;width:40px;height:40px;border-radius:12px;background:var(--orange-pale);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all .15s}
+.cart-btn:hover{background:var(--orange)}
+.cart-count{position:absolute;top:-4px;right:-4px;width:17px;height:17px;border-radius:50%;background:var(--orange);color:white;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+
+/* ── SEARCH ── */
+.search-section{padding:36px 36px 0;display:flex;gap:10px;align-items:center}
+.search-wrap{flex:1;max-width:520px;position:relative}
+.search-wrap input{width:100%;padding:13px 18px 13px 46px;border-radius:15px;border:1.5px solid var(--border);background:white;font-size:14px;font-family:'Nunito',sans-serif;font-weight:600;color:var(--dark);outline:none;transition:all .2s;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.search-wrap input::placeholder{color:var(--muted)}
+.search-wrap input:focus{border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,107,53,.1)}
+.search-icon{position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none}
+.loc-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:13px;border:1.5px solid var(--border);background:white;font-size:13px;font-weight:700;color:var(--mid);cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;transition:all .15s}
+.loc-btn:hover{border-color:var(--orange);color:var(--orange)}
+
+/* ── BUDGET BANNER ── */
+.budget-banner{margin:22px 36px 0;background:linear-gradient(135deg,#FF6B35,#FF8C5A);border-radius:18px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 8px 28px rgba(255,107,53,.25);flex-wrap:wrap}
+.budget-left{display:flex;align-items:center;gap:12px}
+.budget-icon{font-size:32px;line-height:1}
+.budget-text h3{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:white;margin-bottom:2px}
+.budget-text p{font-size:12px;color:rgba(255,255,255,.8);font-weight:500}
+.budget-right{display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.budget-amount{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:white}
+.btn-white{padding:8px 16px;border-radius:11px;background:white;border:none;font-size:12px;font-weight:700;color:var(--orange);cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;white-space:nowrap}
+.btn-white:hover{transform:translateY(-1px)}
+.eom-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:11px;background:rgba(255,255,255,.2);border:none;font-size:11px;font-weight:700;color:white;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap}
+.eom-btn:hover{background:rgba(255,255,255,.3)}
+
+/* ── SECTIONS ── */
+.sec-row{padding:28px 36px 14px;display:flex;align-items:center;justify-content:space-between}
+.sec-row h2{font-family:'Fraunces',serif;font-size:21px;font-weight:600;color:var(--dark)}
+.see-all{font-size:13px;font-weight:700;color:var(--orange);background:none;border:none;cursor:pointer;font-family:'Nunito',sans-serif}
+.cats{padding:0 36px;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.cat-pill{padding:7px 16px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:white;color:var(--mid);cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s}
+.cat-pill:hover,.cat-pill.active{background:var(--orange-pale);border-color:rgba(255,107,53,.3);color:var(--orange)}
+
+/* ── PROMOS ── */
+.promo-scroll{padding:0 36px;display:flex;gap:14px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.promo-scroll::-webkit-scrollbar{display:none}
+.promo-card{min-width:240px;border-radius:18px;padding:18px;position:relative;overflow:hidden;flex-shrink:0;cursor:pointer;transition:transform .2s}
+.promo-card:hover{transform:translateY(-3px)}
+.c1{background:linear-gradient(135deg,#667eea,#764ba2)}
+.c2{background:linear-gradient(135deg,#f093fb,#f5576c)}
+.c3{background:linear-gradient(135deg,#4facfe,#00f2fe)}
+.c4{background:linear-gradient(135deg,#43e97b,#38f9d7)}
+.promo-badge{display:inline-block;background:rgba(255,255,255,.2);border-radius:7px;padding:3px 9px;font-size:10px;font-weight:800;color:white;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.promo-card h4{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:white;margin-bottom:3px;line-height:1.2}
+.promo-card p{font-size:12px;color:rgba(255,255,255,.8);font-weight:600}
+.promo-emoji{position:absolute;bottom:-6px;right:10px;font-size:48px;opacity:.3}
+
+/* ── AI STRIP ── */
+.ai-strip{margin:0 36px;background:linear-gradient(135deg,#0F0F23,#1A1A3E);border-radius:18px;padding:22px 26px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;overflow:hidden}
+.ai-strip::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 70% 50%,rgba(106,90,205,.25),transparent 60%);pointer-events:none}
+.ai-left h3{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:white;margin-bottom:4px}
+.ai-left p{font-size:13px;color:rgba(255,255,255,.5);font-weight:500}
+.ai-tags{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.ai-tag{padding:4px 11px;border-radius:20px;background:rgba(255,255,255,.1);font-size:11px;font-weight:700;color:rgba(255,255,255,.65)}
+.btn-ai{padding:11px 22px;border-radius:13px;background:linear-gradient(135deg,#667eea,#764ba2);border:none;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;flex-shrink:0;transition:all .2s;box-shadow:0 4px 18px rgba(102,126,234,.4)}
+.btn-ai:hover{transform:translateY(-2px)}
+
+/* ── RESTAURANTS ── */
+.rest-grid{padding:0 36px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:12px}
+.rest-card{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:all .2s;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.rest-card:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,.09)}
+.rest-img{height:130px;display:flex;align-items:center;justify-content:center;font-size:52px;position:relative}
+.rest-badge{position:absolute;top:10px;left:10px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:7px}
+.badge-new{background:#E8FFF5;color:#06D6A0;border:1px solid #06D6A0}
+.badge-deal{background:#FFF0E8;color:var(--orange);border:1px solid var(--orange)}
+.badge-budget{position:absolute;top:10px;right:10px;background:#E8FFF5;color:#06D6A0;border:1px solid #06D6A0;font-size:10px;font-weight:800;padding:3px 9px;border-radius:7px}
+.rest-info{padding:14px}
+.rest-info h4{font-size:14px;font-weight:800;color:var(--dark);margin-bottom:4px}
+.rest-meta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-weight:600}
+.star-y{color:#FFB020}
+.rest-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.rest-range{font-size:12px;font-weight:700;color:var(--green)}
+.add-btn{width:28px;height:28px;border-radius:9px;background:var(--orange-pale);border:none;font-size:16px;color:var(--orange);cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:800;transition:all .15s}
+.add-btn:hover{background:var(--orange);color:white;transform:scale(1.1)}
+
+/* ── VOUCHERS ── */
+.voucher-scroll{padding:0 36px;display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.voucher-scroll::-webkit-scrollbar{display:none}
+.voucher-card{min-width:180px;background:white;border:1.5px dashed rgba(255,107,53,.4);border-radius:15px;padding:14px;flex-shrink:0;cursor:pointer;transition:all .18s;position:relative}
+.voucher-card:hover{background:var(--orange-pale);transform:translateY(-2px)}
+.voucher-pct{font-family:'Fraunces',serif;font-size:30px;font-weight:600;color:var(--orange);line-height:1;margin-bottom:3px}
+.voucher-name{font-size:12px;font-weight:700;color:var(--dark);margin-bottom:2px}
+.voucher-exp{font-size:10px;color:var(--muted);font-weight:600}
+.v-type{position:absolute;top:10px;right:10px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:6px;background:var(--orange-pale);color:var(--orange)}
+.v-type.st{background:#EEF2FF;color:#6366F1}
+
+/* ── GROUP ── */
+.group-section{margin:0 36px 36px;background:white;border-radius:18px;border:1px solid var(--border);padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.group-left{display:flex;align-items:center;gap:14px}
+.group-avatars{display:flex}
+.g-av{width:34px;height:34px;border-radius:50%;border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;margin-left:-9px}
+.g-av:first-child{margin-left:0}
+.ga1{background:#FF6B35}.ga2{background:#667eea}.ga3{background:#06D6A0}.ga4{background:#f5576c}
+.group-left h4{font-size:14px;font-weight:800;color:var(--dark);margin-bottom:2px}
+.group-left p{font-size:12px;color:var(--muted);font-weight:500}
+.split-info{font-family:'Fraunces',serif;font-size:13px;color:var(--mid);text-align:right}
+.split-info span{display:block;font-size:20px;font-weight:600;color:var(--orange)}
+
+/* ── FOOTER ── */
+.app-footer{background:var(--dark);padding:36px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.footer-logo{font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:white}
+.footer-logo span{color:var(--orange)}
+.footer-links{display:flex;gap:18px;flex-wrap:wrap}
+.footer-links a{font-size:12px;font-weight:600;color:rgba(255,255,255,.4);text-decoration:none;transition:color .15s}
+.footer-links a:hover{color:var(--orange)}
+.footer-note{font-size:11px;color:rgba(255,255,255,.2);font-weight:500}
+
+/* ── MODALS ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(26,26,46,.55);z-index:1000;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(5px)}
+.modal-overlay.open{display:flex}
+.modal{background:white;border-radius:22px;width:100%;max-width:460px;max-height:85vh;overflow-y:auto;animation:mIn .28s cubic-bezier(.34,1.56,.64,1);box-shadow:0 28px 70px rgba(0,0,0,.14)}
+.modal::-webkit-scrollbar{width:3px}
+.modal::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@keyframes mIn{from{opacity:0;transform:scale(.93) translateY(14px)}to{opacity:1;transform:none}}
+.modal-img{height:150px;border-radius:22px 22px 0 0;display:flex;align-items:center;justify-content:center;font-size:64px;position:relative}
+.modal-close-x{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.9);border:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dark);transition:all .15s}
+.modal-close-x:hover{background:white;transform:scale(1.1)}
+.modal-body{padding:22px}
+.modal-body h3{font-family:'Fraunces',serif;font-size:21px;font-weight:600;color:var(--dark);margin-bottom:5px}
+.modal-body .desc{font-size:13px;color:var(--muted);font-weight:500;line-height:1.6;margin-bottom:16px}
+.modal-chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:4px;padding:5px 11px;border-radius:9px;background:var(--orange-pale);font-size:11px;font-weight:700;color:var(--orange)}
+.menu-label{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.menu-item{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid var(--border);gap:10px}
+.menu-item-info h5{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:2px}
+.menu-item-info p{font-size:11px;color:var(--muted);font-weight:500}
+.menu-item-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.item-price{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--dark)}
+.atc-btn{padding:6px 14px;border-radius:9px;background:var(--orange);border:none;font-size:11px;font-weight:800;color:white;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;white-space:nowrap}
+.atc-btn:hover{background:var(--orange-light);transform:scale(1.04)}
+.modal-foot{padding:0 22px 22px;display:flex;gap:9px}
+.btn-block{flex:1;padding:12px;border-radius:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;border:none}
+.btn-block.pr{background:var(--orange);color:white;box-shadow:0 4px 14px rgba(255,107,53,.3)}
+.btn-block.pr:hover{background:var(--orange-light);transform:translateY(-1px)}
+.btn-block.sc{background:var(--orange-pale);color:var(--orange)}
+
+/* mini modals */
+.mini-modal{display:none;position:fixed;inset:0;background:rgba(26,26,46,.55);z-index:1001;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(5px)}
+.mini-modal.open{display:flex}
+.mini-box{background:white;border-radius:22px;width:100%;max-width:400px;animation:mIn .28s cubic-bezier(.34,1.56,.64,1);box-shadow:0 28px 70px rgba(0,0,0,.14);overflow:hidden}
+.mini-head{height:120px;display:flex;align-items:center;justify-content:center;font-size:52px}
+.mini-body{padding:22px}
+.mini-body h3{font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:var(--dark);margin-bottom:5px}
+.mini-body p{font-size:13px;color:var(--muted);margin-bottom:18px;font-weight:500;line-height:1.6}
+.field{margin-bottom:12px}
+.field label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:5px}
+.field input,.field select{width:100%;padding:11px 15px;border-radius:12px;border:1.5px solid var(--border);font-family:'Nunito',sans-serif;font-size:14px;font-weight:600;color:var(--dark);outline:none;transition:border-color .15s;background:white}
+.field input:focus,.field select:focus{border-color:var(--orange)}
+.mini-cta{width:100%;padding:13px;border-radius:13px;border:none;font-size:14px;font-weight:800;color:white;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- ═══ STICKY SCROLL SCENE ═══ -->
+<div id="sticky-container">
+<div id="sticky-scene">
+
+  <!-- Top brand -->
+  <div class="top-brand" id="top-brand">
+    <div class="logo">Pocket<span>Plate</span></div>
+    <div class="tagline">AI-powered budget food ordering</div>
+  </div>
+
+  <!-- Scroll hint -->
+  <div class="scroll-hint" id="scroll-hint">
+    <span>scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+
+  <!-- Tummy fill circle -->
+  <div id="tummy-fill"></div>
+
+  <!-- APP REVEALED -->
+  <div id="app-section">
+    <nav class="app-nav">
+      <div class="nav-logo"><div class="logo-dot"></div>PocketPlate</div>
+      <div class="nav-links">
+        <button class="nav-link">Home</button>
+        <button class="nav-link">Restaurants</button>
+        <button class="nav-link">Deals</button>
+        <button class="nav-link">Orders</button>
+      </div>
+      <div class="nav-right">
+        <button class="cart-btn" onclick="openCart()">🛒<span class="cart-count" id="cart-count">0</span></button>
+        <button class="btn-ghost" onclick="document.getElementById('login-m').classList.add('open')">Log in</button>
+        <button class="btn-primary" onclick="document.getElementById('signup-m').classList.add('open')">Sign up free</button>
+      </div>
+    </nav>
+    <div class="search-section">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Search restaurants, cuisines, dishes…">
+      </div>
+      <button class="loc-btn" onclick="document.getElementById('loc-m').classList.add('open')">📍 Set location</button>
+    </div>
+    <div class="budget-banner">
+      <div class="budget-left">
+        <div class="budget-icon">🤖</div>
+        <div class="budget-text">
+          <h3>AI Budget Mode active</h3>
+          <p>Showing meals within your monthly budget</p>
+        </div>
+      </div>
+      <div class="budget-right">
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Remaining</div>
+          <div class="budget-amount">£38.50</div>
+        </div>
+        <button class="btn-white" onclick="document.getElementById('budget-m').classList.add('open')">Edit Budget</button>
+        <button class="eom-btn" onclick="toggleEOM(this)">⚡ End-of-Month</button>
+      </div>
+    </div>
+    <div class="sec-row" style="padding-top:28px"><h2>What are you craving?</h2></div>
+    <div class="cats">
+      <button class="cat-pill active" onclick="setCat(this)">🍽️ All</button>
+      <button class="cat-pill" onclick="setCat(this)">🍕 Pizza</button>
+      <button class="cat-pill" onclick="setCat(this)">🍜 Noodles</button>
+      <button class="cat-pill" onclick="setCat(this)">🍣 Sushi</button>
+      <button class="cat-pill" onclick="setCat(this)">🌮 Mexican</button>
+      <button class="cat-pill" onclick="setCat(this)">🥗 Healthy</button>
+      <button class="cat-pill" onclick="setCat(this)">🍔 Burgers</button>
+      <button class="cat-pill" onclick="setCat(this)">🍛 Curry</button>
+    </div>
+    <div class="sec-row" style="padding-top:22px"><h2>Today's Promos</h2><button class="see-all">See all</button></div>
+    <div class="promo-scroll">
+      <div class="promo-card c1"><div class="promo-badge">Flash Deal</div><h4>30% off<br>your order</h4><p>Code: POCKET30</p><div class="promo-emoji">⚡</div></div>
+      <div class="promo-card c2"><div class="promo-badge">Student</div><h4>Free delivery<br>all week</h4><p>Verified students only</p><div class="promo-emoji">🎓</div></div>
+      <div class="promo-card c3"><div class="promo-badge">Card Deal</div><h4>15% off<br>with Barclays</h4><p>Selected restaurants</p><div class="promo-emoji">💳</div></div>
+      <div class="promo-card c4"><div class="promo-badge">New!</div><h4>Combo builder<br>from £5.99</h4><p>Mix restaurants freely</p><div class="promo-emoji">🍱</div></div>
+    </div>
+    <div class="sec-row" style="padding-top:24px"><h2>AI Picks for You</h2></div>
+    <div class="ai-strip">
+      <div class="ai-left">
+        <h3>✨ Personalised just for you</h3>
+        <p>Based on your budget, location and taste preferences</p>
+        <div class="ai-tags">
+          <span class="ai-tag">🥦 Vegetarian</span>
+          <span class="ai-tag">💰 Under £8</span>
+          <span class="ai-tag">⭐ 4.5+ rated</span>
+          <span class="ai-tag">📍 Under 2km</span>
+        </div>
+      </div>
+      <button class="btn-ai" onclick="document.getElementById('prefs-m').classList.add('open')">Get My Picks →</button>
+    </div>
+    <div class="sec-row" style="padding-top:28px"><h2>Restaurants near you</h2><button class="see-all">See all</button></div>
+    <div class="rest-grid" id="rest-grid"></div>
+    <div class="sec-row"><h2>Your Vouchers</h2><button class="see-all" onclick="document.getElementById('vouchers-m').classList.add('open')">View all</button></div>
+    <div class="voucher-scroll">
+      <div class="voucher-card"><div class="v-type">Limited</div><div class="voucher-pct">20%</div><div class="voucher-name">Off your next order</div><div class="voucher-exp">Expires in 2 days</div></div>
+      <div class="voucher-card"><div class="v-type st">Student</div><div class="voucher-pct">£3</div><div class="voucher-name">Student meal deal</div><div class="voucher-exp">Expires in 5 days</div></div>
+      <div class="voucher-card"><div class="v-type">Card</div><div class="voucher-pct">15%</div><div class="voucher-name">Barclays cashback</div><div class="voucher-exp">Expires end of month</div></div>
+      <div class="voucher-card"><div class="v-type">Loyalty</div><div class="voucher-pct">Free</div><div class="voucher-name">Free delivery pass</div><div class="voucher-exp">1 use left this week</div></div>
+    </div>
+    <div class="sec-row" style="padding-top:24px"><h2>Group Ordering</h2></div>
+    <div class="group-section">
+      <div class="group-left">
+        <div class="group-avatars">
+          <div class="g-av ga1">Y</div><div class="g-av ga2">A</div>
+          <div class="g-av ga3">M</div><div class="g-av ga4">+2</div>
+        </div>
+        <div><h4>Friday lunch group</h4><p>5 members · Budget: £40 total</p></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="split-info">Each pays<span>£8.00</span></div>
+        <button class="btn-primary" onclick="alert('👥 Customise your individual share & bill split!')">Customise my share</button>
+      </div>
+    </div>
+    <footer class="app-footer">
+      <div class="footer-logo">Pocket<span>Plate</span></div>
+      <div class="footer-links">
+        <a href="#">Browse Restaurants</a><a href="#">Daily Updates</a>
+        <a href="#">Order History</a><a href="#">Set Preferences</a>
+        <a href="#">Student Vouchers</a><a href="#">Help</a>
+      </div>
+      <div class="footer-note">AI-powered budget food ordering</div>
+    </footer>
+  </div>
+
+  <!-- ════════════════════════════════
+       BAYMAX SVG — accurate proportions
+       Head sits directly atop body, no neck.
+       Body is large rounded rectangle/oval.
+       Tiny dot eyes, thin line mouth.
+       Stubby arms slightly raised.
+       Small rounded feet.
+       Tummy panel in center of body.
+  ════════════════════════════════ -->
+  <div id="baymax-wrapper">
+    <svg id="baymax-svg" viewBox="0 0 400 520" xmlns="http://www.w3.org/2000/svg">
+
+      <!-- ── SHADOW ── -->
+      <ellipse cx="200" cy="510" rx="90" ry="10" fill="rgba(0,80,120,0.1)"/>
+
+      <!-- ── BODY — large puffy rounded rectangle ── -->
+      <!-- Main body shape: tall oval, wide, slightly squarish bottom -->
+      <rect x="62" y="210" width="276" height="260" rx="80" fill="#F5F5F5"/>
+      <!-- body highlight (top) -->
+      <ellipse cx="200" cy="225" rx="100" ry="22" fill="white" opacity="0.6"/>
+      <!-- subtle body crease line (inflate seam) vertical center -->
+      <path d="M 200 212 Q 198 340 200 468" fill="none" stroke="#E0E0E0" stroke-width="1.5" stroke-dasharray="4,5"/>
+      <!-- horizontal seam across mid-body -->
+      <path d="M 80 335 Q 200 325 320 335" fill="none" stroke="#E0E0E0" stroke-width="1.2" stroke-dasharray="4,5"/>
+
+      <!-- ── TUMMY PANEL — rounded rect, slightly inset, center body ── -->
+      <rect id="tummy-panel" x="118" y="258" width="164" height="140" rx="36" fill="white" stroke="#E8E8E8" stroke-width="2"/>
+      <!-- tummy panel inner highlight -->
+      <rect x="128" y="266" width="144" height="50" rx="26" fill="rgba(255,255,255,0.8)" opacity="0.5"/>
+
+      <!-- ── ARMS ── -->
+      <!-- Left arm: stubby, slightly angled outward & upward -->
+      <g>
+        <!-- upper arm -->
+        <ellipse cx="44" cy="285" rx="24" ry="38" fill="#F0F0F0" transform="rotate(-18,44,285)"/>
+        <!-- arm crease -->
+        <path d="M 34 268 Q 28 285 35 302" fill="none" stroke="#E0E0E0" stroke-width="1.5"/>
+        <!-- forearm -->
+        <ellipse cx="26" cy="322" rx="19" ry="28" fill="#F0F0F0" transform="rotate(-10,26,322)"/>
+        <!-- hand (rounded stub) -->
+        <ellipse cx="18" cy="348" rx="16" ry="14" fill="#EBEBEB"/>
+        <!-- finger divots -->
+        <path d="M 10 343 Q 14 338 18 343" fill="none" stroke="#D8D8D8" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M 18 340 Q 22 335 26 340" fill="none" stroke="#D8D8D8" stroke-width="1.2" stroke-linecap="round"/>
+      </g>
+      <!-- Right arm -->
+      <g>
+        <ellipse cx="356" cy="285" rx="24" ry="38" fill="#F0F0F0" transform="rotate(18,356,285)"/>
+        <path d="M 366 268 Q 372 285 365 302" fill="none" stroke="#E0E0E0" stroke-width="1.5"/>
+        <ellipse cx="374" cy="322" rx="19" ry="28" fill="#F0F0F0" transform="rotate(10,374,322)"/>
+        <ellipse cx="382" cy="348" rx="16" ry="14" fill="#EBEBEB"/>
+        <path d="M 374 343 Q 378 338 382 343" fill="none" stroke="#D8D8D8" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M 382 340 Q 386 335 390 340" fill="none" stroke="#D8D8D8" stroke-width="1.2" stroke-linecap="round"/>
+      </g>
+
+      <!-- ── LEGS / FEET ── -->
+      <!-- Left leg -->
+      <ellipse cx="152" cy="478" rx="30" ry="18" fill="#EBEBEB"/>
+      <ellipse cx="148" cy="488" rx="34" ry="13" fill="#E4E4E4"/>
+      <!-- Right leg -->
+      <ellipse cx="248" cy="478" rx="30" ry="18" fill="#EBEBEB"/>
+      <ellipse cx="252" cy="488" rx="34" ry="13" fill="#E4E4E4"/>
+
+      <!-- ── HEAD — round, sits directly on body, slightly wider than tall ── -->
+      <!-- Head is roughly same width as body, a bit shorter, directly touching body -->
+      <ellipse cx="200" cy="175" rx="86" ry="76" fill="#F5F5F5"/>
+      <!-- head highlight -->
+      <ellipse cx="200" cy="140" rx="52" ry="28" fill="white" opacity="0.55"/>
+      <!-- head-body join crease -->
+      <path d="M 130 212 Q 200 200 270 212" fill="none" stroke="#E4E4E4" stroke-width="2"/>
+
+      <!-- ── FACE ── -->
+      <!-- Eyes: two small solid black ovals, wide apart, in upper half of face -->
+      <!-- Baymax eyes are NOT circles — they are slightly wide ovals, pure black, small -->
+      <ellipse cx="170" cy="168" rx="13" ry="11" fill="#1A1A1A"/>
+      <ellipse cx="230" cy="168" rx="13" ry="11" fill="#1A1A1A"/>
+      <!-- Eye shine (tiny white dot top-right of each eye) -->
+      <circle cx="176" cy="163" r="3.5" fill="white"/>
+      <circle cx="236" cy="163" r="3.5" fill="white"/>
+
+      <!-- Mouth: single thin horizontal line, slightly curved upward, centered below eyes -->
+      <!-- Baymax mouth is just one thin black line — no lips, no teeth -->
+      <path d="M 182 192 Q 200 196 218 192" fill="none" stroke="#1A1A1A" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- ── BODY INFLATE SEAM (sides) ── -->
+      <path d="M 65 295 Q 60 340 70 390" fill="none" stroke="#E0E0E0" stroke-width="1.2" stroke-dasharray="3,5"/>
+      <path d="M 335 295 Q 340 340 330 390" fill="none" stroke="#E0E0E0" stroke-width="1.2" stroke-dasharray="3,5"/>
+
+    </svg>
+  </div>
+
+</div><!-- /sticky-scene -->
+</div><!-- /sticky-container -->
+
+<!-- RESTAURANT MODAL -->
+<div class="modal-overlay" id="rest-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-img" id="m-img"><button class="modal-close-x" onclick="document.getElementById('rest-modal').classList.remove('open')">✕</button></div>
+    <div class="modal-body">
+      <h3 id="m-title"></h3><p class="desc" id="m-desc"></p>
+      <div class="modal-chips" id="m-chips"></div>
+      <div class="menu-label">Popular Items</div>
+      <div id="m-menu"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-block sc" onclick="document.getElementById('rest-modal').classList.remove('open')">Back</button>
+      <button class="btn-block pr">View Full Menu →</button>
+    </div>
+  </div>
+</div>
+
+<!-- SIGN UP -->
+<div class="mini-modal" id="signup-m" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mini-box">
+    <div class="mini-head" style="background:linear-gradient(135deg,#FF6B35,#FF8C5A)">👋</div>
+    <div class="mini-body">
+      <h3>Create your account</h3><p>Start eating smart and saving money today.</p>
+      <div class="field"><label>Your name</label><input type="text" placeholder="e.g. Jamie"></div>
+      <div class="field"><label>Email</label><input type="email" placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input type="password" placeholder="At least 8 characters"></div>
+      <button class="mini-cta" style="background:var(--orange);box-shadow:0 4px 14px rgba(255,107,53,.3)" onclick="this.textContent='✓ Account created!';setTimeout(()=>document.getElementById('signup-m').classList.remove('open'),800)">Create Account →</button>
+      <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:12px">Already have an account? <a href="#" style="color:var(--orange);font-weight:700" onclick="document.getElementById('signup-m').classList.remove('open');document.getElementById('login-m').classList.add('open');return false">Log in</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="mini-modal" id="login-m" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mini-box">
+    <div class="mini-head" style="background:linear-gradient(135deg,#667eea,#764ba2)">🔑</div>
+    <div class="mini-body">
+      <h3>Welcome back!</h3><p>Log into your PocketPlate account.</p>
+      <div class="field"><label>Email</label><input type="email" placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input type="password" placeholder="Your password"></div>
+      <button class="mini-cta" style="background:linear-gradient(135deg,#667eea,#764ba2)" onclick="this.textContent='✓ Logged in!';setTimeout(()=>document.getElementById('login-m').classList.remove('open'),800)">Log In →</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUDGET -->
+<div class="mini-modal" id="budget-m" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mini-box">
+    <div class="mini-head" style="background:linear-gradient(135deg,#43e97b,#38f9d7)">💰</div>
+    <div class="mini-body">
+      <h3>Set your budget</h3><p>AI will filter meals to stay within your limit.</p>
+      <div class="field"><label>Monthly food budget (£)</label><input type="number" value="120"></div>
+      <div class="field"><label>Period</label><select><option>Monthly</option><option>Weekly</option><option>Daily</option></select></div>
+      <button class="mini-cta" style="background:#06D6A0" onclick="this.textContent='✓ Budget saved!';setTimeout(()=>document.getElementById('budget-m').classList.remove('open'),800)">Save Budget ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOCATION -->
+<div class="mini-modal" id="loc-m" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mini-box">
+    <div class="mini-head" style="background:linear-gradient(135deg,#f093fb,#f5576c)">📍</div>
+    <div class="mini-body">
+      <h3>Set your location</h3><p>We'll show you the nearest restaurants.</p>
+      <div class="field"><label>Delivery address</label><input type="text" placeholder="Start typing your address…"></div>
+      <button class="mini-cta" style="background:linear-gradient(135deg,#f093fb,#f5576c)" onclick="this.textContent='✓ Location set!';setTimeout(()=>document.getElementById('loc-m').classList.remove('open'),800)">Confirm Location</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREFERENCES -->
+<div class="mini-modal" id="prefs-m" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mini-box">
+    <div class="mini-head" style="background:linear-gradient(135deg,#0F0F23,#1A1A3E)">✨</div>
+    <div class="mini-body">
+      <h3>AI Preferences</h3><p>Tell us your tastes and we'll find the perfect meals.</p>
+      <div class="field"><label>Dietary preference</label><select><option>No restriction</option><option>Vegetarian</option><option>Vegan</option><option>Halal</option><option>Gluten-free</option></select></div>
+      <div class="field"><label>Max meal price (£)</label><input type="number" value="10"></div>
+      <div class="field"><label>Favourite cuisine</label><select><option>Any</option><option>Chinese</option><option>Italian</option><option>Indian</option><option>Japanese</option><option>Mexican</option></select></div>
+      <button class="mini-cta" style="background:linear-gradient(135deg,#667eea,#764ba2)" onclick="this.textContent='✓ Preferences saved!';setTimeout(()=>document.getElementById('prefs-m').classList.remove('open'),800)">Save & Get Picks →</button>
+    </div>
+  </div>
+</div>
+
+<!-- VOUCHERS -->
+<div class="mini-modal" id="vouchers-m" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mini-box">
+    <div class="mini-head" style="background:linear-gradient(135deg,#FFD166,#FF6B35)">🎟️</div>
+    <div class="mini-body">
+      <h3>Your Vouchers</h3><p>Apply these at checkout to save on your order.</p>
+      <div style="display:grid;gap:10px;margin-bottom:16px">
+        <div style="border:1.5px dashed rgba(255,107,53,.4);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:var(--orange)">20% off</div><div style="font-size:12px;color:var(--muted);font-weight:600">Expires in 2 days</div></div>
+          <button class="atc-btn" onclick="this.textContent='Applied ✓';this.style.background='#06D6A0'">Apply</button>
+        </div>
+        <div style="border:1.5px dashed rgba(99,102,241,.4);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:#6366F1">£3 off</div><div style="font-size:12px;color:var(--muted);font-weight:600">Student deal · 5 days left</div></div>
+          <button class="atc-btn" style="background:#6366F1" onclick="this.textContent='Applied ✓';this.style.background='#06D6A0'">Apply</button>
+        </div>
+        <div style="border:1.5px dashed rgba(255,107,53,.4);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:var(--orange)">15% off</div><div style="font-size:12px;color:var(--muted);font-weight:600">Barclays card · End of month</div></div>
+          <button class="atc-btn" onclick="this.textContent='Applied ✓';this.style.background='#06D6A0'">Apply</button>
+        </div>
+      </div>
+      <button class="mini-cta" style="background:var(--orange)" onclick="document.getElementById('vouchers-m').classList.remove('open')">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── RESTAURANT DATA ──
+const restaurants = [
+  {id:0,name:"Wok & Roll",emoji:"🍜",cuisine:"Chinese · Noodles",rating:4.7,time:"18 min",priceFrom:"£4.50",budget:true,badge:"",bg:"linear-gradient(135deg,#FFF8E1,#FFE082)",menu:[{n:"Dan Dan Noodles",p:"£6.50",d:"Spicy peanut sauce, minced pork"},{n:"Veggie Fried Rice",p:"£5.20",d:"With egg & soy sauce"},{n:"Spring Rolls (4)",p:"£3.80",d:"Crispy & golden"}]},
+  {id:1,name:"The Slice Lab",emoji:"🍕",cuisine:"Pizza · Italian",rating:4.5,time:"22 min",priceFrom:"£5.00",budget:true,badge:"deal",bg:"linear-gradient(135deg,#FFF0F0,#FFCDD2)",menu:[{n:"Margherita 10\"",p:"£7.00",d:"Classic tomato & mozzarella"},{n:"Pepperoni",p:"£8.50",d:"Extra pepperoni, basil"},{n:"Garlic Bread",p:"£2.50",d:"Toasted with herb butter"}]},
+  {id:2,name:"Sakura Bento",emoji:"🍣",cuisine:"Japanese · Sushi",rating:4.9,time:"30 min",priceFrom:"£8.00",budget:false,badge:"new",bg:"linear-gradient(135deg,#E3F2FD,#BBDEFB)",menu:[{n:"Salmon Nigiri (6pc)",p:"£9.80",d:"Fresh Atlantic salmon"},{n:"Veggie Bento Box",p:"£11.50",d:"Rice, gyoza, edamame"},{n:"Miso Soup",p:"£2.00",d:"With tofu & wakame"}]},
+  {id:3,name:"Casa Tacos",emoji:"🌮",cuisine:"Mexican · Street food",rating:4.6,time:"20 min",priceFrom:"£4.00",budget:true,badge:"",bg:"linear-gradient(135deg,#FFF8E1,#FFE0B2)",menu:[{n:"3 Tacos Combo",p:"£7.50",d:"Choice of filling"},{n:"Burrito Bowl",p:"£8.00",d:"Rice, beans, salsa, guac"},{n:"Churros",p:"£3.50",d:"With chocolate dip"}]},
+  {id:4,name:"Green Goddess",emoji:"🥗",cuisine:"Healthy · Vegan",rating:4.8,time:"15 min",priceFrom:"£5.50",budget:true,badge:"",bg:"linear-gradient(135deg,#E8F5E9,#C8E6C9)",menu:[{n:"Buddha Bowl",p:"£8.50",d:"Quinoa, roasted veggies, tahini"},{n:"Green Smoothie",p:"£4.00",d:"Spinach, banana, almond milk"},{n:"Avocado Toast",p:"£5.50",d:"With seeds & lemon"}]},
+  {id:5,name:"Spice Route",emoji:"🍛",cuisine:"Indian · Curry",rating:4.4,time:"25 min",priceFrom:"£5.00",budget:true,badge:"deal",bg:"linear-gradient(135deg,#FFF8E1,#FFCCBC)",menu:[{n:"Chicken Tikka Masala",p:"£8.50",d:"Creamy tomato curry"},{n:"Dal Tadka",p:"£5.50",d:"Lentils with cumin temper"},{n:"Garlic Naan",p:"£2.00",d:"Fresh from tandoor"}]}
+];
+
+let cartCount = 0;
+
+function renderRestaurants(){
+  document.getElementById('rest-grid').innerHTML = restaurants.map(r=>`
+    <div class="rest-card" onclick="openRestaurant(${r.id})">
+      <div class="rest-img" style="background:${r.bg}">${r.emoji}
+        ${r.badge==='new'?'<span class="rest-badge badge-new">New</span>':r.badge==='deal'?'<span class="rest-badge badge-deal">Deal</span>':''}
+        ${r.budget?'<span class="badge-budget">✓ Budget</span>':''}
+      </div>
+      <div class="rest-info">
+        <h4>${r.name}</h4>
+        <div class="rest-meta"><span class="star-y">★</span>${r.rating} · ${r.time} · ${r.cuisine}</div>
+        <div class="rest-bottom">
+          <span class="rest-range">From ${r.priceFrom}</span>
+          <button class="add-btn" onclick="event.stopPropagation();quickAdd(this)">+</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openRestaurant(id){
+  const r = restaurants[id];
+  document.getElementById('m-img').innerHTML = `<span style="font-size:60px">${r.emoji}</span><button class="modal-close-x" onclick="document.getElementById('rest-modal').classList.remove('open')">✕</button>`;
+  document.getElementById('m-img').style.background = r.bg;
+  document.getElementById('m-title').textContent = r.name;
+  document.getElementById('m-desc').textContent = r.cuisine;
+  document.getElementById('m-chips').innerHTML = `<span class="chip">★ ${r.rating}</span><span class="chip">🕐 ${r.time}</span><span class="chip">From ${r.priceFrom}</span>${r.budget?'<span class="chip" style="background:#E8FFF5;color:#06D6A0">✓ Budget friendly</span>':''}`;
+  document.getElementById('m-menu').innerHTML = r.menu.map(item=>`
+    <div class="menu-item">
+      <div class="menu-item-info"><h5>${item.n}</h5><p>${item.d}</p></div>
+      <div class="menu-item-right"><span class="item-price">${item.p}</span><button class="atc-btn" onclick="quickAdd(this)">Add to cart</button></div>
+    </div>`).join('');
+  document.getElementById('rest-modal').classList.add('open');
+}
+
+function quickAdd(btn){
+  cartCount++;
+  document.getElementById('cart-count').textContent = cartCount;
+  const orig = btn.textContent;
+  btn.textContent='✓';btn.style.background='#06D6A0';
+  setTimeout(()=>{btn.textContent=orig;btn.style.background='';},1100);
+}
+function openCart(){alert(`🛒 Cart: ${cartCount} item${cartCount!==1?'s':''}\n\nFull cart & checkout here!`)}
+function setCat(btn){document.querySelectorAll('.cat-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+function toggleEOM(btn){const on=btn.dataset.on==='1';btn.dataset.on=on?'':'1';btn.textContent=on?'⚡ End-of-Month':'✓ EOM Active';btn.style.background=on?'rgba(255,255,255,.2)':'rgba(255,255,255,.4)'}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-overlay,.mini-modal').forEach(m=>m.classList.remove('open'))});
+renderRestaurants();
+
+// ══════════════════════════════════════════════
+// SCROLL ANIMATION — zoom into Baymax tummy
+// ══════════════════════════════════════════════
+const stickyC    = document.getElementById('sticky-container');
+const baymaxWrap = document.getElementById('baymax-wrapper');
+const baymaxSvg  = document.getElementById('baymax-svg');
+const tummyFill  = document.getElementById('tummy-fill');
+const appSection = document.getElementById('app-section');
+const topBrand   = document.getElementById('top-brand');
+const scrollHint = document.getElementById('scroll-hint');
+
+// Tummy panel center in SVG coords: cx=200, cy=328 (mid of rect y=258+140/2)
+// We need to find the screen position of the tummy panel center on first render
+function getTummyScreenPos(){
+  const svgEl = baymaxSvg;
+  const rect  = svgEl.getBoundingClientRect();
+  const svgW  = 400; const svgH = 520;
+  // tummy panel center in SVG: x=200, y=258+70=328
+  const scaleX = rect.width  / svgW;
+  const scaleY = rect.height / svgH;
+  return {
+    x: rect.left + 200 * scaleX,
+    y: rect.top  + 328 * scaleY,
+    // tummy panel half-width in screen px
+    r: 82 * scaleX
+  };
+}
+
+function ease(t){return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
+
+// Phase 1 (0→0.45): Baymax zooms toward camera (scale up from 1 to 3)
+//   and tummy panel expands as a white circle filling the screen
+// Phase 2 (0.45→0.65): white fill covers everything → app fades in
+
+window.addEventListener('scroll',()=>{
+  const rect  = stickyC.getBoundingClientRect();
+  const total = stickyC.offsetHeight - window.innerHeight;
+  const p  = Math.min(Math.max(-rect.top / total, 0), 1);
+
+  // ── PHASE 1: zoom Baymax ──
+  const zoomP  = Math.min(p / 0.5, 1);
+  const ezZoom = ease(zoomP);
+
+  // Scale Baymax up (zooming in toward tummy)
+  const scale = 1 + ezZoom * 5.5;
+  // Also translate slightly upward so tummy comes to center
+  const translateY = -ezZoom * 18;
+  baymaxSvg.style.transform = `scale(${scale}) translateY(${translateY}%)`;
+  baymaxSvg.style.transformOrigin = '50% 63%'; // pivot at tummy center
+
+  // Fade out Baymax arms/head as we zoom deep in
+  baymaxSvg.style.opacity = p < 0.35 ? 1 : Math.max(0, 1 - (p - 0.35) / 0.15);
+
+  // ── TUMMY FILL: white circle expands from tummy position ──
+  const fillP  = Math.max(0, Math.min((p - 0.18) / 0.38, 1));
+  const ezFill = ease(fillP);
+
+  if(fillP > 0){
+    const pos = getTummyScreenPos();
+    // Diagonal of screen for max size
+    const maxR = Math.sqrt(window.innerWidth**2 + window.innerHeight**2);
+    const radius = pos.r + ezFill * maxR * 1.2;
+    const size = radius * 2;
+
+    tummyFill.style.width  = size + 'px';
+    tummyFill.style.height = size + 'px';
+    tummyFill.style.left   = pos.x + 'px';
+    tummyFill.style.top    = pos.y + window.scrollY + 'px';
+    tummyFill.style.transform = `translate(-50%, -50%) scale(1)`;
+    tummyFill.style.opacity = '1';
+  } else {
+    tummyFill.style.transform = 'translate(-50%,-50%) scale(0)';
+    tummyFill.style.opacity = '0';
+  }
+
+  // ── PHASE 2: pop the app in ──
+  if(p > 0.5){
+    if(!appSection._popped){
+      appSection._popped = true;
+      appSection.style.opacity = '1';
+      appSection.classList.add('on');
+      appSection.classList.remove('popping');
+      void appSection.offsetWidth; // force reflow
+      appSection.classList.add('popping');
+    }
+  } else {
+    if(appSection._popped){
+      appSection._popped = false;
+      appSection.classList.remove('on','popping');
+      appSection.style.opacity = '0';
+    }
+  }
+
+  // fade UI hints
+  topBrand.style.opacity   = Math.max(0, 1 - p * 6);
+  scrollHint.style.opacity = Math.max(0, 1 - p * 8);
+
+  // bg shift: light blue → white as we zoom in
+  const bg1 = Math.round(232 + (255-232)*ezZoom);
+  const bg2 = Math.round(244 + (255-244)*ezZoom);
+  const bg3 = Math.round(248 + (255-248)*ezZoom);
+  document.getElementById('sticky-scene').style.background = `rgb(${bg1},${bg2},${bg3})`;
+});
+</script>
+</body>
+</html>
