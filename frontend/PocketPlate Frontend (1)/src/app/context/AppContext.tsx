@@ -68,6 +68,7 @@ interface AppContextType {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => void;
+  addPaymentCard: (card: Omit<PaymentCard, 'id'>) => PaymentCard | null;
   budget: number;
   setBudget: (amount: number) => void;
   budgetPeriod: string;
@@ -276,6 +277,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addPaymentCard = (card: Omit<PaymentCard, 'id'>) => {
+    if (!user) return null;
+
+    const newCard = {
+      id: Math.random().toString(36).slice(2),
+      ...card
+    };
+
+    setUser({
+      ...user,
+      savedCards: [...(user.savedCards || []), newCard]
+    });
+
+    return newCard;
+  };
+
   const setBudget = (amount: number) => {
     setBudgetState(amount);
     setBudgetRemaining(amount * 0.32); // Simulated remaining
@@ -344,6 +361,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         updateProfile,
+        addPaymentCard,
         budget,
         setBudget,
         budgetPeriod,

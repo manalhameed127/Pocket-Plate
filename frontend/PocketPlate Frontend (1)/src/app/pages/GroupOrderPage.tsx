@@ -6,11 +6,7 @@ import Navigation from "../components/Navigation";
 export default function GroupOrderPage() {
   const navigate = useNavigate();
   const { user, restaurants, cart, addToCart } = useApp();
-  const [members, setMembers] = useState([
-    "Ahmed Ali",
-    "Sara Khan",
-    "Ali Hassan",
-  ]);
+  const [members, setMembers] = useState<string[]>([]);
   const [newMember, setNewMember] = useState("");
   const [groupBudget, setGroupBudget] = useState("5000");
   const [myShare, setMyShare] = useState("1250");

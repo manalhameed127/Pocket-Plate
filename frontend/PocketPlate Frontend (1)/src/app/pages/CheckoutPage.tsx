@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import Navigation from '../components/Navigation';
@@ -6,13 +6,22 @@ import AuthModal from '../components/AuthModal';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { user, cart, appliedVoucher, placeOrder } = useApp();
+  const { user, cart, appliedVoucher, placeOrder, addPaymentCard } = useApp();
   const [selectedCard, setSelectedCard] = useState(user?.savedCards?.[0]?.id || '');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardError, setCardError] = useState('');
   const [processing, setProcessing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderRef, setOrderRef] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  useEffect(() => {
+    if (!selectedCard && user?.savedCards?.length) {
+      setSelectedCard(user.savedCards[0].id);
+    }
+  }, [selectedCard, user?.savedCards]);
 
   if (!user) {
     return (
@@ -115,6 +124,36 @@ export default function CheckoutPage() {
     }
   };
 
+  const detectCardBrand = (number: string) => {
+    if (number.startsWith('4')) return 'Visa';
+    if (/^5[1-5]/.test(number)) return 'Mastercard';
+    if (/^3[47]/.test(number)) return 'Amex';
+    return 'Card';
+  };
+
+  const handleAddCard = () => {
+    const digits = cardNumber.replace(/\D/g, '');
+    const expiry = cardExpiry.trim();
+
+    if (digits.length < 12 || !/^\d{2}\/\d{2}$/.test(expiry)) {
+      setCardError('Enter a valid card number and expiry in MM/YY format.');
+      return;
+    }
+
+    const newCard = addPaymentCard({
+      brand: detectCardBrand(digits),
+      last4: digits.slice(-4),
+      expiry
+    });
+
+    if (newCard) {
+      setSelectedCard(newCard.id);
+      setCardNumber('');
+      setCardExpiry('');
+      setCardError('');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FEFAF5]">
       <Navigation onAuthClick={() => {}} />
@@ -199,8 +238,38 @@ export default function CheckoutPage() {
                 </label>
               ))
             ) : (
-              <p className="text-sm text-[#9B96B0]">No saved cards. Add a card to continue.</p>
+              <p className="text-sm text-[#9B96B0]">No saved cards yet. Add one below to continue.</p>
             )}
+          </div>
+
+          <div className="mt-5 pt-5 border-t border-[#F0EBE3]">
+            <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#9B96B0] mb-3">Add Card</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+                placeholder="Card number"
+                className="py-3 px-4 rounded-xl border-[1.5px] border-[#F0EBE3] text-sm font-semibold outline-none focus:border-[#FF6B35]"
+              />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={cardExpiry}
+                onChange={(e) => setCardExpiry(e.target.value)}
+                placeholder="MM/YY"
+                className="py-3 px-4 rounded-xl border-[1.5px] border-[#F0EBE3] text-sm font-semibold outline-none focus:border-[#FF6B35]"
+              />
+              <button
+                type="button"
+                onClick={handleAddCard}
+                className="py-3 px-5 rounded-xl bg-[#FFF0E8] border-none text-sm font-extrabold text-[#FF6B35] hover:bg-[#FFE0C8] transition-all"
+              >
+                Add
+              </button>
+            </div>
+            {cardError && <p className="text-xs font-semibold text-red-500 mt-2">{cardError}</p>}
           </div>
         </div>
 
