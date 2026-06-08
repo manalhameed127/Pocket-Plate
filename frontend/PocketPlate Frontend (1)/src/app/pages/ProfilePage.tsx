@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import Navigation from '../components/Navigation';
+import AuthModal from '../components/AuthModal';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -10,10 +11,55 @@ export default function ProfilePage() {
   const [email, setEmail] = useState(user?.email || '');
   const [location, setLocation] = useState(user?.location || '');
   const [editing, setEditing] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   if (!user) {
-    navigate('/home');
-    return null;
+    return (
+      <div className="min-h-screen bg-[#FEFAF5]">
+        <Navigation
+          onAuthClick={(mode) => {
+            setAuthMode(mode);
+            setShowAuthModal(true);
+          }}
+        />
+
+        <div className="max-w-3xl mx-auto px-6 py-20 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF0E8] text-2xl font-extrabold text-[#FF6B35]">
+            PP
+          </div>
+          <h1 className="font-serif text-3xl font-semibold text-[#1A1A2E] mb-3">Sign in to view your profile</h1>
+          <p className="text-sm font-medium text-[#9B96B0] mb-6">
+            Your profile, preferences, saved cards, and order shortcuts appear here after login.
+          </p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => {
+                setAuthMode('login');
+                setShowAuthModal(true);
+              }}
+              className="py-3 px-6 rounded-xl bg-[#FF6B35] border-none text-sm font-bold text-white hover:bg-[#FF8C5A] transition-all"
+            >
+              Log in
+            </button>
+            <button
+              onClick={() => navigate('/home')}
+              className="py-3 px-6 rounded-xl bg-[#FFF0E8] border-none text-sm font-bold text-[#FF6B35] hover:bg-[#FFE0C8] transition-all"
+            >
+              Back home
+            </button>
+          </div>
+        </div>
+
+        {showAuthModal && (
+          <AuthModal
+            mode={authMode}
+            onClose={() => setShowAuthModal(false)}
+            onSwitchMode={(mode) => setAuthMode(mode)}
+          />
+        )}
+      </div>
+    );
   }
 
   const handleSave = () => {
