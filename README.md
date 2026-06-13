@@ -32,13 +32,23 @@ An AI-powered budget-friendly food ordering app built for students and budget-co
 
 ## Project Structure
 ├── backend/
+
 │   ├── controllers/       # Business logic
+
 │   ├── models/            # Mongoose schemas
+
 │   ├── routes/            # Express API routes
+
 │   └── middleware/        # Auth & error handling
+
 ├── frontend/
+
 │   └── src/
+
 │       ├── pages/         # Full page components
+
 │       ├── components/    # Reusable UI components
+
 │       └── context/       # Global app state
+
 └── Documents/             # UML diagrams & project proposal
