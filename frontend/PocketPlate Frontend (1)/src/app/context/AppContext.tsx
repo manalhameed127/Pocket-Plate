@@ -6,6 +6,7 @@ interface User {
   email: string;
   isStudent?: boolean;
   isAdmin?: boolean;
+  status?: string;
   preferences?: {
     dietary?: string;
     cuisine?: string;
@@ -13,6 +14,17 @@ interface User {
   };
   location?: string;
   savedCards?: PaymentCard[];
+}
+
+interface AdminUser extends User {
+  joinedDate?: string;
+}
+
+interface Metrics {
+  totalUsers: number;
+  totalRestaurants: number;
+  totalOrders: number;
+  totalOffers: number;
 }
 
 interface PaymentCard {
@@ -30,6 +42,9 @@ interface Restaurant {
   rating: number;
   deliveryTime: string;
   priceFrom: number;
+  description?: string;
+  location?: string;
+  image?: string;
   isNew?: boolean;
   hasDeal?: boolean;
   isBudgetFriendly?: boolean;
@@ -64,6 +79,7 @@ interface Voucher {
 
 interface AppContextType {
   user: User | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -77,6 +93,17 @@ interface AppContextType {
   endOfMonthMode: boolean;
   toggleEndOfMonthMode: () => void;
   restaurants: Restaurant[];
+  adminUsers: AdminUser[];
+  metrics: Metrics;
+  fetchAdminUsers: () => Promise<void>;
+  fetchAdminRestaurants: () => Promise<void>;
+  fetchMetrics: () => Promise<void>;
+  createRestaurant: (restaurant: Omit<Restaurant, 'id' | 'emoji' | 'rating' | 'deliveryTime' | 'menu'> & { city: string; address: string }) => Promise<void>;
+  updateRestaurant: (id: string, payload: Partial<Restaurant>) => Promise<void>;
+  deleteRestaurant: (id: string) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+  updateOffer: (id: string, update: Partial<Voucher>) => Promise<void>;
   cart: CartItem[];
   addToCart: (restaurantId: string, restaurantName: string, item: MenuItem) => void;
   removeFromCart: (restaurantId: string, itemId: string) => void;
@@ -92,17 +119,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [budget, setBudgetState] = useState(15000); // PKR
-  const [budgetPeriod, setBudgetPeriod] = useState('monthly');
-  const [budgetRemaining, setBudgetRemaining] = useState(4850);
-  const [endOfMonthMode, setEndOfMonthMode] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
-  const [orders, setOrders] = useState<any[]>([]);
-
-  // Pakistani Restaurants Data
-  const restaurants: Restaurant[] = [
+  const initialRestaurants: Restaurant[] = [
     {
       id: '1',
       name: 'Karachi Biryani House',
@@ -196,7 +213,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   ];
 
-  const vouchers: Voucher[] = [
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [budget, setBudgetState] = useState(15000);
+  const [budgetPeriod, setBudgetPeriod] = useState('monthly');
+  const [budgetRemaining, setBudgetRemaining] = useState(4850);
+  const [endOfMonthMode, setEndOfMonthMode] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants);
+  const [metrics, setMetrics] = useState<Metrics>({ totalUsers: 0, totalRestaurants: 0, totalOrders: 0, totalOffers: 0 });
+
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:2000/api';
+
+  const buildHeaders = (includeJson = true, authToken?: string) => {
+    const headers: Record<string, string> = {};
+    if (includeJson) headers['Content-Type'] = 'application/json';
+    const tokenToUse = authToken ?? token;
+    if (tokenToUse) headers.Authorization = `Bearer ${tokenToUse}`;
+    return headers;
+  };
+
+  const mapBackendRestaurantToFrontend = (restaurant: any): Restaurant => ({
+    id: restaurant._id ?? restaurant.id ?? Math.random().toString(),
+    name: restaurant.name ?? 'New Restaurant',
+    emoji: restaurant.name ? restaurant.name.charAt(0).toUpperCase() : '🍽️',
+    cuisine: Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(' · ') : restaurant.cuisine ?? 'General',
+    rating: restaurant.rating ?? 4.5,
+    deliveryTime: restaurant.deliveryTime ?? (restaurant.hours ? `${restaurant.hours.open ?? '10:00'} - ${restaurant.hours.close ?? '23:00'}` : '30 min'),
+    priceFrom: restaurant.priceFrom ?? (restaurant.priceRange === '$' ? 300 : restaurant.priceRange === '$$' ? 550 : restaurant.priceRange === '$$$' ? 900 : 500),
+    menu: restaurant.menu ?? [],
+    isNew: restaurant.isNewlyOpened ?? false,
+    hasDeal: restaurant.hasDeal ?? false,
+    isBudgetFriendly: restaurant.isBudgetFriendly ?? false
+  });
+
+  const mapBackendUserToFrontend = (backendUser: any): AdminUser => ({
+    id: backendUser._id ?? backendUser.id ?? Math.random().toString(),
+    name: backendUser.name ?? 'Unknown',
+    email: backendUser.email ?? '',
+    isStudent: backendUser.isStudent ?? false,
+    isAdmin: backendUser.isAdmin ?? false,
+    status: backendUser.status ?? 'Active',
+    joinedDate: backendUser.createdAt ? new Date(backendUser.createdAt).toISOString().split('T')[0] : 'Unknown',
+    location: backendUser.location,
+    savedCards: backendUser.savedCards ?? []
+  });
+
+  const [vouchers, setVouchers] = useState<Voucher[]>([
     {
       id: 'v1',
       code: 'POCKET20',
@@ -237,44 +303,282 @@ export function AppProvider({ children }: { children: ReactNode }) {
       category: 'loyalty',
       isValid: true
     }
-  ];
+  ]);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('pp_token');
+    if (storedToken) {
+      setToken(storedToken);
+    }
+  }, []);
+
+  // FIX: Separate admin-only fetches from regular user profile fetch.
+  // Previously, fetchAdminRestaurants() was always called on login, and if
+  // the /admin/restaurants endpoint failed it would leave restaurants empty.
+  useEffect(() => {
+    if (!token) {
+      setAdminUsers([]);
+      return;
+    }
+
+    const loadUserData = async () => {
+      const fetchedUser = await fetchProfile();
+      // Only fetch admin data if the user is actually an admin
+      if (fetchedUser?.isAdmin) {
+        await Promise.all([fetchAdminUsers(), fetchAdminRestaurants(), fetchMetrics()]);
+      }
+      // Non-admin users keep initialRestaurants — no backend call needed
+    };
+
+    loadUserData();
+  }, [token]);
+
+  // FIX: Return the user object so the caller can check isAdmin before
+  // deciding whether to fetch admin-only endpoints.
+  const fetchProfile = async (authToken?: string): Promise<User | null> => {
+    const tokenToUse = authToken || token;
+    if (!tokenToUse) return null;
+    try {
+      const response = await fetch(`${apiBaseUrl}/users/profile`, {
+        headers: buildHeaders(true, tokenToUse)
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (data?.user) {
+        const mappedUser: User = {
+          id: data.user._id ?? data.user.id ?? 'unknown',
+          name: data.user.name,
+          email: data.user.email,
+          isStudent: data.user.isStudent ?? false,
+          isAdmin: data.user.isAdmin ?? false,
+          status: data.user.status,
+          location: data.user.location,
+          savedCards: data.user.savedCards ?? []
+        };
+        setUser(mappedUser);
+        return mappedUser;
+      }
+    } catch {
+      // silently fail — user stays null
+    }
+    return null;
+  };
+
+  const fetchAdminUsers = async () => {
+    if (!token) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/admin/users`, {
+        headers: buildHeaders()
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setAdminUsers(data.map(mapBackendUserToFrontend));
+    } catch {
+      // silently fail — adminUsers stays empty
+    }
+  };
+
+  // FIX: Only overwrite restaurants if the backend returns a non-empty array.
+  // Previously a failed/empty response would wipe out initialRestaurants.
+  const fetchAdminRestaurants = async () => {
+    if (!token) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/admin/restaurants`, {
+        headers: buildHeaders()
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setRestaurants(data.map(mapBackendRestaurantToFrontend));
+      }
+      // If backend returns empty array, keep initialRestaurants
+    } catch {
+      // Network error — keep initialRestaurants
+    }
+  };
+
+  const fetchMetrics = async () => {
+    if (!token) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/admin/metrics`, {
+        headers: buildHeaders()
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setMetrics(data);
+    } catch {
+      // silently fail
+    }
+  };
 
   const login = async (email: string, password: string) => {
-    // Simulated login
-    setUser({
-      id: '1',
-      name: 'Ahmed Ali',
-      email,
-      isStudent: email.includes('student'),
-      isAdmin: email.includes('admin'),
-      location: 'Lahore, Pakistan',
-      savedCards: [
-        { id: 'c1', last4: '4242', brand: 'HBL', expiry: '12/26' },
-        { id: 'c2', last4: '5555', brand: 'UBL', expiry: '09/27' }
-      ]
+    const response = await fetch(`${apiBaseUrl}/auth/login`, {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify({ email, password })
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Login failed');
+    }
+
+    const data = await response.json();
+    setToken(data.token);
+    localStorage.setItem('pp_token', data.token);
+
+    // Fetch profile immediately after login so isAdmin is known
+    const fetchedUser = await fetchProfile(data.token);
+
+    // Only fetch admin data if this user is actually an admin
+    if (fetchedUser?.isAdmin) {
+      await Promise.all([fetchAdminUsers(), fetchAdminRestaurants(), fetchMetrics()]);
+    }
   };
 
   const register = async (name: string, email: string, password: string) => {
-    // Simulated registration
-    setUser({
-      id: Math.random().toString(),
-      name,
-      email,
-      savedCards: []
+    const response = await fetch(`${apiBaseUrl}/auth/register`, {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify({ name, email, password })
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Registration failed');
+    }
+
+    await login(email, password);
   };
 
   const logout = () => {
     setUser(null);
+    setToken(null);
     setCart([]);
     setAppliedVoucher(null);
+    // Restore initial restaurants on logout so they're ready for next login
+    setRestaurants(initialRestaurants);
+    localStorage.removeItem('pp_token');
   };
 
   const updateProfile = (updates: Partial<User>) => {
     if (user) {
       setUser({ ...user, ...updates });
     }
+  };
+
+  const createRestaurant = async (restaurant: Omit<Restaurant, 'id' | 'emoji' | 'rating' | 'deliveryTime' | 'menu'> & { city: string; address: string }) => {
+    const response = await fetch(`${apiBaseUrl}/admin/integration`, {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify({
+        name: restaurant.name,
+        description: restaurant.description ?? '',
+        location: {
+          address: restaurant.address,
+          city: restaurant.city
+        },
+        cuisine: [restaurant.cuisine],
+        priceRange: restaurant.priceFrom <= 500 ? '$' : restaurant.priceFrom <= 900 ? '$$' : '$$$',
+        hours: {
+          open: '10:00',
+          close: '23:00'
+        },
+        image: ''
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Unable to create restaurant');
+    }
+
+    const data = await response.json();
+    setRestaurants(prev => [mapBackendRestaurantToFrontend(data.restaurant), ...prev]);
+  };
+
+  const updateRestaurant = async (id: string, payload: Partial<Restaurant>) => {
+    const response = await fetch(`${apiBaseUrl}/admin/restaurants/${id}`, {
+      method: 'PUT',
+      headers: buildHeaders(),
+      body: JSON.stringify({
+        name: payload.name,
+        description: payload.description,
+        location: payload.location,
+        cuisine: payload.cuisine ? [payload.cuisine] : undefined,
+        priceRange: payload.priceFrom ? (payload.priceFrom <= 500 ? '$' : payload.priceFrom <= 900 ? '$$' : '$$$') : undefined,
+        hours: payload.deliveryTime ? { open: '10:00', close: '23:00' } : undefined,
+        image: payload.image
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Unable to update restaurant');
+    }
+
+    const data = await response.json();
+    setRestaurants(prev => prev.map(item => item.id === id ? mapBackendRestaurantToFrontend(data) : item));
+  };
+
+  const deleteRestaurant = async (id: string) => {
+    const response = await fetch(`${apiBaseUrl}/admin/restaurants/${id}`, {
+      method: 'DELETE',
+      headers: buildHeaders(false)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Unable to delete restaurant');
+    }
+
+    setRestaurants(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updateUser = async (id: string, updates: Partial<User>) => {
+    const response = await fetch(`${apiBaseUrl}/admin/users/${id}`, {
+      method: 'PUT',
+      headers: buildHeaders(),
+      body: JSON.stringify(updates)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Unable to update user');
+    }
+
+    const data = await response.json();
+    setAdminUsers(prev => prev.map(userItem => userItem.id === id ? mapBackendUserToFrontend(data) : userItem));
+  };
+
+  const deleteUser = async (id: string) => {
+    const response = await fetch(`${apiBaseUrl}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: buildHeaders(false)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Unable to delete user');
+    }
+
+    setAdminUsers(prev => prev.filter(userItem => userItem.id !== id));
+  };
+
+  const updateOffer = async (id: string, update: Partial<Voucher>) => {
+    const response = await fetch(`${apiBaseUrl}/admin/offers/${id}`, {
+      method: 'PUT',
+      headers: buildHeaders(),
+      body: JSON.stringify(update)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Unable to update offer');
+    }
+
+    const data = await response.json();
+    setVouchers(prev => prev.map(voucher => voucher.id === id ? { ...voucher, ...update, ...data.offer } : voucher));
   };
 
   const addPaymentCard = (card: Omit<PaymentCard, 'id'>) => {
@@ -295,7 +599,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setBudget = (amount: number) => {
     setBudgetState(amount);
-    setBudgetRemaining(amount * 0.32); // Simulated remaining
+    setBudgetRemaining(amount * 0.32);
   };
 
   const toggleEndOfMonthMode = () => {
@@ -357,6 +661,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         user,
+        token,
         login,
         register,
         logout,
@@ -370,6 +675,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         endOfMonthMode,
         toggleEndOfMonthMode,
         restaurants,
+        adminUsers,
+        metrics,
+        fetchAdminUsers,
+        fetchAdminRestaurants,
+        fetchMetrics,
+        createRestaurant,
+        updateRestaurant,
+        deleteRestaurant,
+        updateUser,
+        deleteUser,
+        updateOffer,
         cart,
         addToCart,
         removeFromCart,
